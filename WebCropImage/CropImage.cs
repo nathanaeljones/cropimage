@@ -6,7 +6,7 @@ using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 
-using drawing=System.Drawing;
+using drawing = System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Drawing;
@@ -24,7 +24,7 @@ using System.Web.Hosting;
 [assembly: WebResource("Imazen.Crop.jquery-1.8.2.js", "text/javascript")]
 [assembly: WebResource("Imazen.Crop.jquery-1.8.2.min.js", "text/javascript")]
 [assembly: WebResource("Imazen.Crop.webcropimage.js", "text/javascript")]
-[assembly:TagPrefix("Imazen.Crop","ic")]
+[assembly: TagPrefix("Imazen.Crop", "ic")]
 namespace Imazen.Crop
 {
     /// <summary>
@@ -42,12 +42,15 @@ namespace Imazen.Crop
         /// 
         /// </summary>
         /// <param name="e"></param>
-        protected override void OnLoad(EventArgs e) {
+        protected override void OnLoad(EventArgs e)
+        {
             //Updated X,Y, W, H, X2, Y2 values if present in postback
-            if (Page.IsPostBack && !string.IsNullOrEmpty(CroppedUrl)) {
+            if (Page.IsPostBack && !string.IsNullOrEmpty(CroppedUrl))
+            {
                 NameValueCollection s = ImageResizer.Util.PathUtils.ParseQueryStringFriendlyAllowSemicolons(CroppedUrl);
-                double[] vals = ParseUtils.ParseList<double>(s["crop"],null,4);
-                if (vals != null) {
+                double[] vals = ParseUtils.ParseList<double>(s["crop"], null, 4);
+                if (vals != null)
+                {
                     this.X = (int)vals[0];
                     this.Y = (int)vals[1];
                     this.W = (int)vals[2] - (int)vals[0];
@@ -61,17 +64,21 @@ namespace Imazen.Crop
         /// </summary>
         /// <param name="uri"></param>
         /// <returns></returns>
-        public Stream GetUriStream(Uri uri) {
+        public Stream GetUriStream(Uri uri)
+        {
 
             HttpWebResponse response = null;
-            try {
+            try
+            {
                 HttpWebRequest request = (HttpWebRequest)WebRequest.Create(uri);
                 request.Timeout = 15000; //Default to 15 seconds. Browser timeout is usually 30.
 
                 //This is IDisposable, but only disposes the stream we are returning. So we can't dispose it, and don't need to
                 response = request.GetResponse() as HttpWebResponse;
                 return response.GetResponseStream();
-            } catch {
+            }
+            catch
+            {
                 if (response != null) response.Close();
                 throw;
             }
@@ -80,62 +87,102 @@ namespace Imazen.Crop
         /// <summary>
         /// Crops the original image and saves it to the specified path. If the specified path doesn't contain a valid image extension, it will be appended
         /// </summary>
-        /// <param name="destPath"></param>
-        public void Crop(string destPath) {
-            Crop(destPath, !ImageResizer.Configuration.Config.Current.Pipeline.IsAcceptedImageType(destPath));
+        /// <param name="dest">The destination Stream, physical path or app-relative virtual path to which the output should be sent</param>
+        public void Crop(object dest)
+        {
+            string destString = dest as string;
+            if (destString != null)
+            {
+                Crop(destString, !ImageResizer.Configuration.Config.Current.Pipeline.IsAcceptedImageType(destString));
+            }
+            else
+            {
+                Crop(dest, false);
+            }
         }
+
         /// <summary>
         /// Crops the original image and saves it to the specified path.
         /// </summary>
-        /// <param name="destPath"></param>
+        /// <param name="dest">The destination Stream, physical path or app-relative virtual path to which the output should be sent</param>
         /// <param name="appendCorrectExtension">If true, the appropriate image extension will be added</param>
-        public void Crop(string destPath, bool appendCorrectExtension) {
+        public void Crop(object dest, bool appendCorrectExtension)
+        {
 
             string path = ImagePath != null ? ImagePath : CroppedUrl;
 
             //Fix relative paths
-            if (!path.StartsWith("http", StringComparison.OrdinalIgnoreCase) && !path.StartsWith("~") && !path.StartsWith("/")) {
+            if (!path.StartsWith("http", StringComparison.OrdinalIgnoreCase) && !path.StartsWith("~") && !path.StartsWith("/"))
+            {
                 path = ResolveUrl(path); //No relative paths here.
             }
 
             //Fix domain-relative paths into app-relative paths if they're in the same application.
-            if (path.StartsWith("/") && path.StartsWith(HostingEnvironment.ApplicationVirtualPath, StringComparison.OrdinalIgnoreCase)) {
+            if (path.StartsWith("/") && path.StartsWith(HostingEnvironment.ApplicationVirtualPath, StringComparison.OrdinalIgnoreCase))
+            {
                 path = "~/" + path.Substring(HostingEnvironment.ApplicationVirtualPath.Length).TrimStart('/');
             }
-
-            Stream s = null;
-            try {
-                //Handle same-domain, external apps
-                if (path.StartsWith("/")) {
-                    s = GetUriStream(new Uri(new Uri(Page.Request.Url.GetComponents(UriComponents.SchemeAndServer, UriFormat.SafeUnescaped)), new Uri(path)));
-                } else if (!path.StartsWith("~")) {
+            Stream inputStream = null;
+            try
+            {
+                if (path.StartsWith("/"))
+                {
+                    inputStream =
+                        GetUriStream(
+                            new Uri(new Uri(Page.Request.Url.GetComponents(UriComponents.SchemeAndServer, UriFormat.SafeUnescaped)),
+                                    new Uri(path)));
+                }
+                else if (!path.StartsWith("~"))
+                {
                     //Everything else
-                    s = GetUriStream(new Uri(path));
+                    inputStream = GetUriStream(new Uri(path));
                 }
 
-                ImageJob j = new ImageJob();
-                j.Source = s != null ? (object)s : path;
-                j.Dest = destPath;
-                j.AddFileExtension = appendCorrectExtension;
-                j.Settings = new ResizeSettings(CroppedUrlQuerystring);
-
-                NameValueCollection data = CroppedUrlQuerystring;
-                j.Settings["cropxunits"] = data["cropxunits"];
-                j.Settings["cropyunits"] = data["cropyunits"];
-                j.Settings.Quality = this.JpegQuality;
-                if (!string.IsNullOrEmpty(this.ForcedImageFormat))
-                    j.Settings.Format = this.ForcedImageFormat;
-                j.Settings["crop"] = "(" + X + ", " + Y + ", " + (X + W) + ", " + (Y + H) + ")";
-
-                j.Build();
-
-            } finally {
-                if (s != null) s.Dispose();
+                ExecuteImageJob(dest, appendCorrectExtension, inputStream, path);
+            }
+            finally
+            {
+                if (inputStream != null) inputStream.Dispose();
             }
         }
 
+        /// <summary>
+        /// Crops the original image and saves it to the specified path.
+        /// </summary>
+        /// <param name="outputStream">The destination Stream to which the output should be sent</param>
+        /// <param name="inputStream">The stream from which the original Image is read</param>
+        public void Crop(Stream outputStream, Stream inputStream)
+        {
+            try
+            {
+                ExecuteImageJob(outputStream, false, inputStream, null);
+            }
+            finally
+            {
+                if (inputStream != null) inputStream.Dispose();
+            }
+        }
 
-        
+        private void ExecuteImageJob(object dest, bool appendCorrectExtension, Stream inputStream, string path)
+        {
+            ImageJob j = new ImageJob();
+            j.Source = inputStream != null ? (object)inputStream : path;
+            j.Dest = dest;
+            j.AddFileExtension = appendCorrectExtension;
+            j.Settings = new ResizeSettings(CroppedUrlQuerystring);
+
+            NameValueCollection data = CroppedUrlQuerystring;
+            j.Settings["cropxunits"] = data["cropxunits"];
+            j.Settings["cropyunits"] = data["cropyunits"];
+            j.Settings.Quality = this.JpegQuality;
+            if (!string.IsNullOrEmpty(this.ForcedImageFormat))
+                j.Settings.Format = this.ForcedImageFormat;
+            j.Settings["crop"] = "(" + X + ", " + Y + ", " + (X + W) + ", " + (Y + H) + ")";
+
+            j.Build();
+        }
+
+
         /// <summary>
         /// (readonly) The virtual path or URL to the image we are cropping.
         /// </summary>
@@ -149,14 +196,17 @@ namespace Imazen.Crop
         /// <summary>
         /// Returns a URL to a dynamically cropped version of the image. Requires the ImageResizingModule to be enabled in Web.Config.  
         /// </summary>
-        public string CroppedUrl {
+        public string CroppedUrl
+        {
             get { return Page.Request[HiddenFieldClientId]; }
         }
         /// <summary>
         /// Returns a NameValueCollection of the settings used in the cropped url. Doesn't include server-side modified X,Y,W,H values, only client side versions
         /// </summary>
-        private NameValueCollection CroppedUrlQuerystring {
-            get {
+        private NameValueCollection CroppedUrlQuerystring
+        {
+            get
+            {
                 return CroppedUrl != null ? ImageResizer.Util.PathUtils.ParseQueryStringFriendlyAllowSemicolons(CroppedUrl) : null;
             }
         }
@@ -165,18 +215,22 @@ namespace Imazen.Crop
         /// Returns 0 unless ServerSideResize=True and CanvasWidth and/or CanvasHeight are set. 
         /// The width of the display image; the size 'X', 'W', and 'X2' are relative to. 
         /// </summary>
-        public double CropXUnits {
-            get {
+        public double CropXUnits
+        {
+            get
+            {
                 return string.IsNullOrEmpty(CroppedUrl) ? 0 :
-                    ParseUtils.ParsePrimitive<double>(CroppedUrlQuerystring["cropxunits"],0);
+                    ParseUtils.ParsePrimitive<double>(CroppedUrlQuerystring["cropxunits"], 0);
             }
         }
         /// <summary>
         /// Returns 0 unless ServerSideResize=True and CanvasWidth and/or CanvasHeight are set. 
         /// The height of the display image; the size 'Y', 'H', and 'Y2' are relative to. 
         /// </summary>
-        public double CropYUnits {
-            get {
+        public double CropYUnits
+        {
+            get
+            {
                 return string.IsNullOrEmpty(CroppedUrl) ? 0 :
                     ParseUtils.ParsePrimitive<double>(CroppedUrlQuerystring["cropyunits"], 0);
             }
@@ -185,8 +239,9 @@ namespace Imazen.Crop
         /// <summary>
         /// 
         /// </summary>
-        protected override void CreateChildControls() {
-      
+        protected override void CreateChildControls()
+        {
+
             //Add the jquery/jcrop includes
             AddFileReferences();
 
@@ -221,7 +276,8 @@ namespace Imazen.Crop
 
             NameValueCollection s = new NameValueCollection();
 
-            if (!string.IsNullOrEmpty(this.FixedAspectRatioCheckboxID)) {
+            if (!string.IsNullOrEmpty(this.FixedAspectRatioCheckboxID))
+            {
                 Control c = Parent.FindControl(FixedAspectRatioCheckboxID);
                 if (c != null) s["keepAspectRatioCheckbox"] = "'#" + c.ClientID + "'";
             }
@@ -231,14 +287,18 @@ namespace Imazen.Crop
                 s["aspectRatio"] = Ratio;
 
             //If the image URL is a virtual path within the application, and ServerSideResize=true, then use URL resizing; otherwise, use boxWidth/boxHeight
-            if (CanvasHeight > 0 | CanvasWidth > 0) {
-                if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase) && this.ServerSizeResize) {
+            if (CanvasHeight > 0 | CanvasWidth > 0)
+            {
+                if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase) && this.ServerSizeResize)
+                {
                     NameValueCollection max = new NameValueCollection();
                     if (CanvasHeight > 0) max["maxheight"] = CanvasHeight.ToString();
                     if (CanvasWidth > 0) max["maxwidth"] = CanvasWidth.ToString();
                     url = ImageResizer.Util.PathUtils.MergeOverwriteQueryString(url, max);
                     image.ImageUrl = url;
-                } else {
+                }
+                else
+                {
                     if (CanvasHeight > 0) s["boxHeight"] = CanvasHeight.ToString();
                     if (CanvasWidth > 0) s["boxWidth"] = CanvasWidth.ToString();
                 }
@@ -266,7 +326,8 @@ namespace Imazen.Crop
             if (this.PreviewHeight > 0)
                 s["previewHeight"] = this.PreviewHeight.ToString();
 
-            if (!string.IsNullOrEmpty(this.PreviewImageID)) {
+            if (!string.IsNullOrEmpty(this.PreviewImageID))
+            {
                 Control c = Parent.FindControl(PreviewImageID);
                 if (c != null) s["previewDiv"] = "'#" + c.ClientID + "'";
             }
@@ -278,20 +339,24 @@ namespace Imazen.Crop
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("<script>$(function(){ ");
             sb.AppendLine("webcropimage('#" + image.ClientID + "', {");
-            foreach (string key in s) {
+            foreach (string key in s)
+            {
                 sb.AppendLine(key + ": " + s[key] + ",");
             }
             sb.Append("});});");
             sb.Append(@"</script>");
-            
 
-            if (isInUpdatePanel) {
+
+            if (isInUpdatePanel)
+            {
                 ScriptManager.RegisterClientScriptBlock(this.Page, this.Page.GetType()
                     , "cropInit" + this.ClientID
                     , sb.ToString(), false);
                 ScriptManager.RegisterHiddenField(this.Page, HiddenFieldClientId, resolvedUrl);
 
-            } else {
+            }
+            else
+            {
                 Page.ClientScript.RegisterClientScriptBlock(this.GetType()
                     , "cropInit" + this.ClientID
                     , sb.ToString(), false);
@@ -305,7 +370,8 @@ namespace Imazen.Crop
         /// We don't render anything for this control, it just ties to other controls.
         /// </summary>
         /// <param name="writer"></param>
-        public override void RenderEndTag(HtmlTextWriter writer) {
+        public override void RenderEndTag(HtmlTextWriter writer)
+        {
             //base.RenderEndTag(writer);
         }
 
@@ -314,7 +380,8 @@ namespace Imazen.Crop
         /// We don't render anything for this control, it just ties to other controls.
         /// </summary>
         /// <param name="writer"></param>
-        public override void RenderBeginTag(HtmlTextWriter writer) {
+        public override void RenderBeginTag(HtmlTextWriter writer)
+        {
             //base.RenderBeginTag(writer);
         }
 
@@ -322,7 +389,8 @@ namespace Imazen.Crop
         /// <summary>
         /// Adds the jQuery, jCrop, webcropimage.js and jCrop CSS references as specified in the matching properties.
         /// </summary>
-        protected void AddFileReferences() {
+        protected void AddFileReferences()
+        {
 
             ClientScriptManager cs = Page.ClientScript;
 
@@ -364,9 +432,12 @@ namespace Imazen.Crop
 
             string jCropBlock = null;
 
-            if (JCropInclude == JCropIncludeMode.Embedded) {
+            if (JCropInclude == JCropIncludeMode.Embedded)
+            {
                 jCropBlock = jCropResource;
-            } else if (JCropInclude == JCropIncludeMode.ScriptFolder) {
+            }
+            else if (JCropInclude == JCropIncludeMode.ScriptFolder)
+            {
                 jCropBlock = jCropFolder + jCropFallbackResource;
             }
 
@@ -377,9 +448,12 @@ namespace Imazen.Crop
                 webBlock = webCropFolder + webCropFallbackResource;
 
             string jCropCss = null;
-            if (JCropCssInclude == JCropCssIncludeMode.Embedded) {
+            if (JCropCssInclude == JCropCssIncludeMode.Embedded)
+            {
                 jCropCss = jCropCssResource;
-            } else if (JCropCssInclude == JCropCssIncludeMode.ScriptFolder) {
+            }
+            else if (JCropCssInclude == JCropCssIncludeMode.ScriptFolder)
+            {
                 jCropCss = jCropCssFolder;
             }
 
@@ -408,13 +482,14 @@ namespace Imazen.Crop
             }
 
 
-            if (jCropCss != null) {
+            if (jCropCss != null)
+            {
                 Page.Header.Controls.Add(new LiteralControl("<link href=\"" + jCropCss + "\" type=\"text/css\" rel=\"stylesheet\" />\r\n"));
             }
 
 
         }
 
-        
+
     }
 }
