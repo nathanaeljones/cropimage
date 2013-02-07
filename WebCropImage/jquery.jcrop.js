@@ -300,6 +300,7 @@
     var img_css = {
       border: 'none',
       margin: 0,
+      'max-width': 'inherit',
       padding: 0,
       position: 'absolute'
     };

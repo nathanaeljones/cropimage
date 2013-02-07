@@ -72,8 +72,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="changes.txt" />
-    <Content Include="jquery-1.8.2.js" />
-    <Content Include="jquery-1.8.2.min.js" />
+    <EmbeddedResource Include="jquery-1.8.2.js" />
+    <EmbeddedResource Include="jquery-1.8.2.min.js" />
     <EmbeddedResource Include="jquery.Jcrop.css" />
     <EmbeddedResource Include="jquery.Jcrop.js" />
     <EmbeddedResource Include="jquery.Jcrop.min.js" />

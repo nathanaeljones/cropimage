@@ -384,16 +384,8 @@ namespace Imazen.Crop
             }
 
 
-            if (this.IsInUpdatePanel) {
-                if (jQueryBlock != null && !cs.IsClientScriptBlockRegistered("jquery"))
-                    cs.RegisterClientScriptBlock(this.GetType(), "jquery", jQueryBlock, false);
-
-                if (jCropBlock != null && !cs.IsClientScriptBlockRegistered("cropJS"))
-                    cs.RegisterClientScriptBlock(this.GetType(), "cropJS", jCropBlock);
-
-                if (webBlock != null && !cs.IsClientScriptBlockRegistered("webcropimage"))
-                    cs.RegisterClientScriptBlock(this.GetType(), "webcropimage", webBlock);
-            } else {
+            if (IsInUpdatePanel)
+            {
                 if (jQueryBlock != null && !cs.IsClientScriptBlockRegistered("jquery"))
                     ScriptManager.RegisterClientScriptBlock(this, this.GetType(), "jquery", jQueryBlock, false);
 
@@ -402,6 +394,17 @@ namespace Imazen.Crop
 
                 if (webBlock != null && !cs.IsClientScriptBlockRegistered("webcropimage"))
                     ScriptManager.RegisterClientScriptBlock(this, this.GetType(), "webcropimage", webBlock, false);
+            }
+            else
+            {
+                if (jQueryBlock != null && !cs.IsClientScriptBlockRegistered("jquery"))
+                    cs.RegisterClientScriptBlock(this.GetType(), "jquery", jQueryBlock, false);
+
+                if (jCropBlock != null && !cs.IsClientScriptBlockRegistered("cropJS"))
+                    cs.RegisterClientScriptBlock(this.GetType(), "cropJS", jCropBlock);
+
+                if (webBlock != null && !cs.IsClientScriptBlockRegistered("webcropimage"))
+                    cs.RegisterClientScriptBlock(this.GetType(), "webcropimage", webBlock);
             }
 
 
