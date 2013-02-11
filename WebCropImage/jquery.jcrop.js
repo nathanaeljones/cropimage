@@ -308,8 +308,8 @@
     var $origimg = $(obj);
     var $img = $origimg.clone().removeAttr('id').css(img_css);
 
-    $img.width($origimg[0].width);
-    $img.height($origimg[0].height);
+    $img.width($origimg.width());
+    $img.height($origimg.height());
     $origimg.after($img).hide();
 
     presize($img, options.boxWidth, options.boxHeight);

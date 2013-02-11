@@ -5,7 +5,7 @@ using System.Text;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
-
+using NLog;
 using drawing = System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -37,6 +37,8 @@ namespace Imazen.Crop
 
     public partial class CropImage : CompositeControl, INamingContainer
     {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private const string FailureMessage = "Error occured in while cropping image.";
 
         /// <summary>
         /// 
@@ -171,13 +173,15 @@ namespace Imazen.Crop
             j.AddFileExtension = appendCorrectExtension;
             j.Settings = new ResizeSettings(CroppedUrlQuerystring);
 
-            NameValueCollection data = CroppedUrlQuerystring;
-            j.Settings["cropxunits"] = data["cropxunits"];
-            j.Settings["cropyunits"] = data["cropyunits"];
-            j.Settings.Quality = this.JpegQuality;
-            if (!string.IsNullOrEmpty(this.ForcedImageFormat))
-                j.Settings.Format = this.ForcedImageFormat;
-            j.Settings["crop"] = "(" + X + ", " + Y + ", " + (X + W) + ", " + (Y + H) + ")";
+            Logger.Trace("ImageJob.Settings = {0}", j.Settings);
+
+//            NameValueCollection data = CroppedUrlQuerystring;
+//            j.Settings["cropxunits"] = data["cropxunits"];
+//            j.Settings["cropyunits"] = data["cropyunits"];
+//            j.Settings.Quality = this.JpegQuality;
+//            if (!string.IsNullOrEmpty(this.ForcedImageFormat))
+//                j.Settings.Format = this.ForcedImageFormat;
+//            j.Settings["crop"] = "(" + X + ", " + Y + ", " + (X + W) + ", " + (Y + H) + ")";
 
             j.Build();
         }
@@ -337,7 +341,7 @@ namespace Imazen.Crop
 
 
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine("<script>$(function(){ ");
+            sb.AppendLine("<script>$(\"#" + image.ClientID + "\").load(function(){ ");
             sb.AppendLine("webcropimage('#" + image.ClientID + "', {");
             foreach (string key in s)
             {
@@ -353,7 +357,6 @@ namespace Imazen.Crop
                     , "cropInit" + this.ClientID
                     , sb.ToString(), false);
                 ScriptManager.RegisterHiddenField(this.Page, HiddenFieldClientId, resolvedUrl);
-
             }
             else
             {
